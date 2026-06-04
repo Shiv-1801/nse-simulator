@@ -5,19 +5,22 @@ on:
   schedule:
     - cron: '45 3 * * 1-5'
 
-  # Also allows a manual "Run workflow" button in the GitHub Actions UI
+  # Manual "Run workflow" button in the GitHub Actions UI
   workflow_dispatch:
+
+# Allow the workflow to push the trade log back to the repo
+permissions:
+  contents: write
 
 jobs:
   simulate:
     runs-on: ubuntu-latest
 
-    # Safety ceiling: 6 h 20 min covers full NSE session (9:15 AM – 3:15 PM IST)
-    # plus a small buffer. GitHub cancels the job if it runs longer.
+    # Safety ceiling: 6 h 20 min covers the full NSE session + buffer
     timeout-minutes: 380
 
     steps:
-      # ── 1. Pull the latest simulator.py ───────────────────────────
+      # ── 1. Pull the latest code ───────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -28,40 +31,55 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      # ── 3. Install dependencies (no venv needed on CI) ────────────
+      # ── 3. Install dependencies ───────────────────────────────────
       - name: Install dependencies
         run: pip install yfinance pandas requests pytz
 
       # ── 4. Run the simulator ──────────────────────────────────────
-      # Script exits on its own at 3:15 PM IST (win/loss/EOD).
-      # PYTHONUTF8 ensures the ₹ symbol renders correctly in logs.
+      # Script exits on its own at 3:15 PM IST (win / loss / EOD).
+      # PYTHONUTF8 keeps the ₹ symbol intact in logs.
       - name: Run simulator
         env:
           PYTHONUTF8: "1"
         run: python simulator.py
 
-      # ── 5. Rename log to include today's date ─────────────────────
-      - name: Rename trade log with date
-        if: always()   # run even if the simulator exits with code 1 (loss)
+      # ── 5. Save dated log to logs/ and commit back to the repo ────
+      # This makes logs publicly readable via raw.githubusercontent.com,
+      # so the dashboard at crshivnarayan.com can fetch them without auth.
+      - name: Commit trade log to repo
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TODAY=$(TZ='Asia/Kolkata' date +%Y-%m-%d)
           echo "TODAY=$TODAY" >> $GITHUB_ENV
-          if [ -f trade_log.csv ]; then
-            cp trade_log.csv "trade_log_${TODAY}.csv"
-            echo "Log saved as trade_log_${TODAY}.csv"
-          else
-            echo "No trade_log.csv found (no trades executed today)."
+
+          if [ ! -f trade_log.csv ]; then
+            echo "No trade_log.csv — no trades executed today. Skipping commit."
+            exit 0
           fi
 
-      # ── 6. Upload dated log as a downloadable artifact ────────────
-      - name: Upload trade log artifact
+          mkdir -p logs
+          cp trade_log.csv "logs/trade_log_${TODAY}.csv"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "logs/trade_log_${TODAY}.csv"
+
+          if git diff --cached --quiet; then
+            echo "Log unchanged — nothing to commit."
+          else
+            git commit -m "logs: add trade log for ${TODAY}"
+            git push
+            echo "Committed and pushed logs/trade_log_${TODAY}.csv"
+          fi
+
+      # ── 6. Also upload as a GitHub Actions artifact (90-day backup) ─
+      - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Artifact name includes the date for easy browsing
           name: trade-log-${{ env.TODAY }}
-          path: trade_log_*.csv
-          # Keep logs for 90 days
+          path: logs/trade_log_*.csv
           retention-days: 90
-          # Don't fail the workflow if no CSV was produced
           if-no-files-found: warn

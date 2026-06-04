@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment (only needed locally)
+stock_sim_env/
+venv/
+.venv/
+
+# Trade logs (artifacts are stored in GitHub Actions, not the repo)
+trade_log*.csv
+
+# OS
+.DS_Store
+Thumbs.db

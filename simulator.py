@@ -465,25 +465,26 @@ def main():
                 rsi = compute_rsi(price_history[sym])
                 if cp:
                     attempt_sell(sym, cp, rsi, force=True)
-            last_action = "FORCE-CLOSE (EOD)"
+            print_status(current_prices)
+            print_summary("EOD — market closed at 3:15 PM IST")
+            sys.exit(0)
 
-        else:
-            # ── 3. Evaluate sell signals on open positions ────────
-            for sym in list(positions.keys()):
-                cp  = current_prices.get(sym)
-                if cp is None:
-                    continue
-                rsi = compute_rsi(price_history[sym])
-                attempt_sell(sym, cp, rsi)
+        # ── 3. Evaluate sell signals on open positions ────────
+        for sym in list(positions.keys()):
+            cp  = current_prices.get(sym)
+            if cp is None:
+                continue
+            rsi = compute_rsi(price_history[sym])
+            attempt_sell(sym, cp, rsi)
 
-            # ── 4. Evaluate buy signals on watchlist ──────────────
-            for sym in WATCHLIST:
-                cp   = current_prices.get(sym)
-                prev = prev_prices.get(sym)
-                if cp is None:
-                    continue
-                rsi = compute_rsi(price_history[sym])
-                attempt_buy(sym, cp, prev, rsi)
+        # ── 4. Evaluate buy signals on watchlist ──────────────
+        for sym in WATCHLIST:
+            cp   = current_prices.get(sym)
+            prev = prev_prices.get(sym)
+            if cp is None:
+                continue
+            rsi = compute_rsi(price_history[sym])
+            attempt_buy(sym, cp, prev, rsi)
 
         # ── 5. Print status ───────────────────────────────────────
         print_status(current_prices)

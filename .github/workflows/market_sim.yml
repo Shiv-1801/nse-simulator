@@ -33,7 +33,7 @@ jobs:
 
       # ── 3. Install dependencies ───────────────────────────────────
       - name: Install dependencies
-        run: pip install yfinance pandas requests pytz
+        run: pip install -r requirements.txt
 
       # ── 4. Run the simulator ──────────────────────────────────────
       # Script exits on its own at 3:15 PM IST (win / loss / EOD).

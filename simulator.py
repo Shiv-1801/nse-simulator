@@ -426,6 +426,18 @@ signal.signal(signal.SIGINT, handle_exit)
 def main():
     global bankroll, last_action
 
+    # ── Weekend guard ─────────────────────────────────────────────
+    # NSE is closed on Saturdays and Sundays. Exit immediately so
+    # manually triggered workflow_dispatch runs on weekends don't
+    # waste GitHub Actions minutes or produce empty log files.
+    today_ist = now_ist()
+    weekday   = today_ist.weekday()   # 0=Mon … 4=Fri, 5=Sat, 6=Sun
+    if weekday >= 5:
+        day_name = today_ist.strftime("%A")
+        print(f"\n  [{day_name}] NSE is closed on weekends. Nothing to do.")
+        print("  Exiting — no simulation run on weekends.\n")
+        sys.exit(0)
+
     print("\n" + "=" * 62)
     print("  SIMULATION ONLY — NO REAL MONEY INVOLVED")
     print("  NSE Intraday Simulator | Start: ₹1,000 | Target: ₹1,500")

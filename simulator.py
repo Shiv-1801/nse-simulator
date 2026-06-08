@@ -42,6 +42,9 @@ WATCHLIST = [
     "NHPC.NS",
     "IRFC.NS",
     "BHEL.NS",
+    "ZOMATO.NS",
+    "PAYTM.NS",
+    "PNB.NS",
 ]
 
 TRADE_LOG_FILE = "trade_log.csv"

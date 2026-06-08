@@ -3,7 +3,7 @@ name: NSE Market Simulator
 on:
   # Runs every weekday at 9:15 AM IST (= 03:45 UTC, IST is UTC+5:30)
   schedule:
-    - cron: '45 3 * * 1-5'
+    - cron: '30 3 * * 1-5'
 
   # Manual "Run workflow" button in the GitHub Actions UI
   workflow_dispatch:
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Safety ceiling: 6 h 20 min covers the full NSE session + buffer
-    timeout-minutes: 380
+    timeout-minutes: 400
 
     steps:
       # ── 1. Pull the latest code ───────────────────────────────────

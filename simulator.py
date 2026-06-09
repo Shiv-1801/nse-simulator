@@ -42,7 +42,7 @@ WATCHLIST = [
     "NHPC.NS",
     "IRFC.NS",
     "BHEL.NS",
-    "ZOMATO.NS",
+    "ETERNAL.NS",
     "PAYTM.NS",
     "PNB.NS",
 ]

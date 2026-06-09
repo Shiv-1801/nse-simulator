@@ -10,7 +10,8 @@ venv/
 
 # Trade logs — ignore root-level file, but allow committed logs/ directory
 trade_log*.csv
-!logs/trade_log*.csv
+!logs/
+!logs/*.csv
 
 # OS
 .DS_Store

@@ -512,14 +512,20 @@ def main():
                 last_action = "WAITING (no signal)"
 
         # ── 6. Win / loss checks ──────────────────────────────────
-        if bankroll >= TARGET_CAPITAL:
-            print(f"\n  🎯 TARGET REACHED! Bankroll = ₹{bankroll:.2f}")
+        position_value = sum(
+            current_prices.get(sym, pos["avg_price"]) * pos["qty"]
+            for sym, pos in positions.items()
+        )
+        total_value = bankroll + position_value
+
+        if total_value >= TARGET_CAPITAL:
+            print(f"\n  🎯 TARGET REACHED! Portfolio = ₹{total_value:.2f}")
             print_summary("TARGET REACHED — ₹1,500 achieved!")
             sys.exit(0)
 
-        if bankroll < STOP_CAPITAL:
-            print(f"\n  ❌ STOP TRIGGERED! Bankroll dropped to ₹{bankroll:.2f}")
-            print_summary("STOP LOSS TRIGGERED — bankroll below ₹500")
+        if total_value < STOP_CAPITAL:
+            print(f"\n  ❌ STOP TRIGGERED! Portfolio dropped to ₹{total_value:.2f}")
+            print_summary("STOP LOSS TRIGGERED — portfolio below ₹500")
             sys.exit(1)
 
         # ── 7. Sleep until next poll ──────────────────────────────

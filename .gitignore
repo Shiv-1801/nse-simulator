@@ -8,8 +8,9 @@ stock_sim_env/
 venv/
 .venv/
 
-# Trade logs (artifacts are stored in GitHub Actions, not the repo)
+# Trade logs — ignore root-level file, but allow committed logs/ directory
 trade_log*.csv
+!logs/trade_log*.csv
 
 # OS
 .DS_Store

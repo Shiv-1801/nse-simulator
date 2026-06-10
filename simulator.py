@@ -63,6 +63,44 @@ poll_count      = 0
 
 
 # ─────────────────────────────────────────────
+# SEED PRICE HISTORY FROM PREVIOUS DAY
+# ─────────────────────────────────────────────
+def seed_price_history():
+    """
+    Pre-populates price_history with the previous trading day's 1-min closes.
+    This means RSI is computable from the very first poll instead of after
+    ~75 minutes of warmup. Uses the last 50 1-min bars from the prior session.
+    """
+    print("  Seeding price history from previous session data...")
+    seeded = 0
+    for symbol in WATCHLIST:
+        try:
+            ticker = yf.Ticker(symbol)
+            # Fetch 5 days of 1-min data; yfinance returns up to 7 calendar days
+            hist = ticker.history(period="5d", interval="1m")
+            if hist.empty:
+                print(f"    [WARN] No historical data for {symbol} — RSI will warm up live")
+                continue
+
+            today_date = now_ist().date()
+            # Keep only bars from before today (previous trading sessions)
+            hist.index = hist.index.tz_convert(IST)
+            prev_bars = hist[hist.index.date < today_date]
+
+            if prev_bars.empty:
+                print(f"    [WARN] No prior-day bars for {symbol} — RSI will warm up live")
+                continue
+
+            closes = list(prev_bars["Close"].tail(50))
+            price_history[symbol] = [float(c) for c in closes]
+            seeded += 1
+        except Exception as e:
+            print(f"    [WARN] Could not seed {symbol}: {e}")
+
+    print(f"  Seeded {seeded}/{len(WATCHLIST)} symbols — RSI ready from poll #1\n")
+
+
+# ─────────────────────────────────────────────
 # BROKERAGE CHARGE CALCULATION (Zerodha intraday)
 # ─────────────────────────────────────────────
 def calculate_charges(price: float, qty: int, side: str) -> float:
@@ -450,6 +488,8 @@ def main():
     print(f"  Cutoff    : {CUTOFF_BUY[0]:02d}:{CUTOFF_BUY[1]:02d} IST (no new buys after)")
     print(f"  Force-sell: {FORCE_SELL[0]:02d}:{FORCE_SELL[1]:02d} IST")
     print("=" * 62 + "\n")
+
+    seed_price_history()
 
     while True:
         current_prices = {}   # symbol -> latest price this cycle

@@ -1,0 +1,57 @@
+name: Keepalive
+
+# GitHub deprioritises scheduled workflows on repos with low recent activity.
+# This workflow runs every weekday morning (IST) *before* the simulator fires,
+# keeping the repo "active" so market_sim.yml triggers on time.
+#
+# It also re-enables the market_sim schedule if GitHub ever auto-disables it
+# (GitHub disables scheduled workflows after 60 days of repo inactivity).
+
+on:
+  schedule:
+    # 03:15 UTC = 08:45 IST — 30 min before the simulator's 03:45 UTC trigger
+    - cron: '15 3 * * 1-5'
+
+  workflow_dispatch:
+
+permissions:
+  actions: write   # needed to re-enable disabled workflows
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Re-enable market_sim if GitHub auto-disabled it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          STATE=$(gh workflow view market_sim.yml --json state -q .state 2>/dev/null || echo "unknown")
+          if [ "$STATE" = "disabled_inactivity" ]; then
+            echo "market_sim.yml was disabled — re-enabling..."
+            gh workflow enable market_sim.yml
+          else
+            echo "market_sim.yml state: $STATE (no action needed)"
+          fi
+
+      - name: Touch keepalive timestamp
+        run: |
+          mkdir -p .github
+          echo "keepalive: $(TZ='Asia/Kolkata' date '+%Y-%m-%d %H:%M IST')" > .github/keepalive.txt
+
+      - name: Commit keepalive
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive.txt
+          if git diff --cached --quiet; then
+            echo "Nothing changed — keepalive already up to date."
+          else
+            git commit -m "chore: keepalive $(TZ='Asia/Kolkata' date '+%Y-%m-%d')"
+            git push
+          fi

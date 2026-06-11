@@ -13,6 +13,9 @@ trade_log*.csv
 !logs/
 !logs/*.csv
 
+# Bankroll carry-over state (committed to repo so CI can read it next session)
+!bankroll.json
+
 # OS
 .DS_Store
 Thumbs.db

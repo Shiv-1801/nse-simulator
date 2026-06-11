@@ -12,6 +12,7 @@ import pandas as pd
 import time
 import csv
 import os
+import json
 import signal
 import sys
 
@@ -47,8 +48,30 @@ WATCHLIST = [
     "PNB.NS",
 ]
 
-TRADE_LOG_FILE = "trade_log.csv"
+TRADE_LOG_FILE  = "trade_log.csv"
+BANKROLL_FILE   = "bankroll.json"
 IST = pytz.timezone("Asia/Kolkata")
+
+# ─────────────────────────────────────────────
+# CARRY-OVER BANKROLL
+# ─────────────────────────────────────────────
+def load_bankroll() -> float:
+    """Returns previous session's ending bankroll, or STARTING_CAPITAL if none."""
+    if os.path.isfile(BANKROLL_FILE):
+        try:
+            data = json.load(open(BANKROLL_FILE))
+            saved = float(data.get("bankroll", STARTING_CAPITAL))
+            print(f"  Carried over bankroll from last session: ₹{saved:.2f}")
+            return saved
+        except Exception:
+            pass
+    return STARTING_CAPITAL
+
+def save_bankroll(amount: float):
+    """Persists the ending bankroll so the next session can carry it over."""
+    with open(BANKROLL_FILE, "w") as f:
+        json.dump({"bankroll": round(amount, 2)}, f)
+
 
 # ─────────────────────────────────────────────
 # GLOBAL STATE
@@ -448,6 +471,7 @@ def print_summary(reason: str):
     print(f"  Trade log saved  : {TRADE_LOG_FILE}")
     print("=" * 62)
     print("\nSIMULATION ONLY — NO REAL MONEY INVOLVED\n")
+    save_bankroll(bankroll)
 
 
 # ─────────────────────────────────────────────
@@ -465,7 +489,8 @@ signal.signal(signal.SIGINT, handle_exit)
 # MAIN LOOP
 # ─────────────────────────────────────────────
 def main():
-    global bankroll, last_action
+    global bankroll, last_action, STARTING_CAPITAL
+    bankroll = STARTING_CAPITAL = load_bankroll()
 
     # ── Too-late guard ────────────────────────────────────────────
     # If GitHub Actions delayed the scheduled run past the buy cutoff,

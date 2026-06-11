@@ -65,25 +65,27 @@ jobs:
           TODAY=$(TZ='Asia/Kolkata' date +%Y-%m-%d)
           echo "TODAY=$TODAY" >> $GITHUB_ENV
 
-          if [ ! -f trade_log.csv ]; then
-            echo "No trade_log.csv — no trades executed today. Skipping commit."
-            exit 0
-          fi
-
-          mkdir -p logs
-          cp trade_log.csv "logs/trade_log_${TODAY}.csv"
-
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f "logs/trade_log_${TODAY}.csv"
+
+          # Always commit bankroll.json so the next session carries over
+          if [ -f bankroll.json ]; then
+            git add -f bankroll.json
+          fi
+
+          # Commit trade log if trades were made today
+          if [ -f trade_log.csv ]; then
+            mkdir -p logs
+            cp trade_log.csv "logs/trade_log_${TODAY}.csv"
+            git add -f "logs/trade_log_${TODAY}.csv"
+          fi
 
           if git diff --cached --quiet; then
-            echo "Log unchanged — nothing to commit."
+            echo "Nothing to commit."
           else
-            git commit -m "logs: add trade log for ${TODAY}"
+            git commit -m "logs: session ${TODAY} — bankroll + trade log"
             git pull --rebase origin main
             git push
-            echo "Committed and pushed logs/trade_log_${TODAY}.csv"
           fi
 
       # ── 6. Also upload as a GitHub Actions artifact (90-day backup) ─

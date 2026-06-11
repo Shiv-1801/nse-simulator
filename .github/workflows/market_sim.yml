@@ -12,6 +12,12 @@ on:
 permissions:
   contents: write
 
+# Only one simulator run at a time — if a new run starts while one is already
+# running (e.g. delayed cron fires after a manual run), cancel the new one.
+concurrency:
+  group: nse-simulator
+  cancel-in-progress: false
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 

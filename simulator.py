@@ -467,6 +467,17 @@ signal.signal(signal.SIGINT, handle_exit)
 def main():
     global bankroll, last_action
 
+    # ── Too-late guard ────────────────────────────────────────────
+    # If GitHub Actions delayed the scheduled run past the buy cutoff,
+    # there is nothing useful to do — exit immediately rather than
+    # sitting idle until 3:15 PM force-sell with no positions.
+    start_ist = now_ist()
+    start_hm  = (start_ist.hour, start_ist.minute)
+    if start_hm >= CUTOFF_BUY:
+        print(f"\n  [LATE START] It is {start_ist.strftime('%H:%M')} IST — past the "
+              f"{CUTOFF_BUY[0]}:{CUTOFF_BUY[1]:02d} buy cutoff. Exiting.")
+        sys.exit(0)
+
     # ── Weekend guard ─────────────────────────────────────────────
     # NSE is closed on Saturdays and Sundays. Exit immediately so
     # manually triggered workflow_dispatch runs on weekends don't

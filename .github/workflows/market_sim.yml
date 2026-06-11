@@ -73,6 +73,7 @@ jobs:
             echo "Log unchanged — nothing to commit."
           else
             git commit -m "logs: add trade log for ${TODAY}"
+            git pull --rebase origin main
             git push
             echo "Committed and pushed logs/trade_log_${TODAY}.csv"
           fi

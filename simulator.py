@@ -37,15 +37,31 @@ WARNING_LOSS_PCT   = 3.0          # warn if unrealised loss on a position exceed
 WARNING_CHARGES_RS = 100.0        # warn if total charges exceed ₹100
 
 WATCHLIST = [
-    "IDEA.NS",
-    "SUZLON.NS",
-    "YESBANK.NS",
-    "NHPC.NS",
-    "IRFC.NS",
-    "BHEL.NS",
-    "ETERNAL.NS",
-    "PAYTM.NS",
-    "PNB.NS",
+    "CIG",    # Companhia Energética
+    "WIT",    # Wipro Limited
+    "PLUG",   # Plug Power Inc.
+    "DNN",    # Denison Mines Corp.
+    "ABEV",   # Ambev S.A.
+    "GRAB",   # Grab Holdings Limited
+    "BBD",    # Banco Bradesco S.A.
+    "BTG",    # B2Gold Corp.
+    "OPEN",   # Opendoor Technologies
+    "VRRM",   # Verra Mobility Corp.
+    "CCC",    # CCC Intelligent Solutions
+    "GGB",    # Gerdau S.A.
+    "BTE",    # Baytex Energy Corp.
+    "TMC",    # TMC the metals company
+    "LCID",   # Lucid Group Inc.
+    "NIO",    # NIO Inc.
+    "ACHR",   # Archer Aviation Inc.
+    "SNAP",   # Snap Inc.
+    "LYG",    # Lloyds Banking Group
+    "SBS",    # Companhia de Saneamento
+    "KEEL",   # Keel Infrastructure Corp.
+    "PTON",   # Peloton Interactive Inc.
+    "AUR",    # Aurora Innovation Inc.
+    "RIG",    # Transocean Ltd.
+    "EOSE",   # Eos Energy Enterprises
 ]
 
 TRADE_LOG_FILE  = "trade_log.csv"

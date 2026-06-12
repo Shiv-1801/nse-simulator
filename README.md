@@ -7,7 +7,7 @@ Starts with ₹1,000 and targets ₹1,500 (50% gain). Stops at ₹500 (50% loss)
 
 ## How it works
 
-- Watches: `IDEA.NS`, `SUZLON.NS`, `YESBANK.NS`, `NHPC.NS`, `IRFC.NS`, `BHEL.NS`
+- Watches: `CIG`, `WIT`, `PLUG`, `DNN`, `ABEV`, `GRAB`, `BBD`, `BTG`, `OPEN`, `VRRM`, `CCC`, `GGB`, `BTE`, `TMC`, `LCID`, `NIO`, `ACHR`, `SNAP`, `LYG`, `SBS`, `KEEL`, `PTON`, `AUR`, `RIG`, `EOSE`
 - Polls prices every 5 minutes via `yfinance`
 - Buys/sells automatically using RSI + momentum signals
 - Simulates realistic Zerodha brokerage charges

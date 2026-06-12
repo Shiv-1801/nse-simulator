@@ -78,7 +78,7 @@ jobs:
             echo "Nothing to commit."
           else
             git commit -m "logs: session ${TODAY} — bankroll + trade log"
-            git pull --rebase origin main
+            git pull --rebase -X ours origin main
             git push
           fi
 

@@ -1,12 +1,6 @@
 name: NSE Market Simulator
 
 on:
-  # Fires Sun–Thu at 22:30 UTC (= Mon–Fri 04:00 IST).
-  # Accounts for ~5 h GitHub Actions queue delay so the run
-  # actually starts around 09:00–09:30 IST on each trading day.
-  schedule:
-    - cron: '30 22 * * 0-4'
-
   # Manual "Run workflow" button in the GitHub Actions UI
   workflow_dispatch:
 

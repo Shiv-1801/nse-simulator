@@ -517,7 +517,7 @@ def main():
 
     print("\n" + "=" * 62)
     print("  SIMULATION ONLY — NO REAL MONEY INVOLVED")
-    print("  NSE Intraday Simulator | Start: ₹1,000 | Target: ₹1,500")
+    print(f"  NSE Intraday Simulator | Start: ₹{STARTING_CAPITAL:.2f} | Target: ₹{TARGET_CAPITAL:.2f}")
     print("=" * 62)
     print(f"  Watchlist : {', '.join(WATCHLIST)}")
     print(f"  Interval  : {POLL_INTERVAL // 60} minutes")

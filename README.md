@@ -7,7 +7,7 @@ Starts with ₹1,000 and targets ₹1,500 (50% gain). Stops at ₹500 (50% loss)
 
 ## How it works
 
-- Watches: `IDEA.NS`, `SUZLON.NS`, `YESBANK.NS`, `NHPC.NS`, `IRFC.NS`, `BHEL.NS`
+- Watches 50 NSE penny stocks by volume: `AURIGROW.NS`, `DHARAN.NS`, `GATECH.NS`, `FCONSUMER.NS`, `GRADIENTE.NS`, `OSIAHYPER.NS`, `INVENTURE.NS`, `TPHQ.NS`, `GATECHDVR.NS`, `GANGAFORGE.NS`, `HAVISHA.NS`, `ORCHASP.NS`, `ROLLATAIN.NS`, `MITTALLIFE.NS`, `SANWARIA.NS`, `VCL.NS`, `SITI.NS`, `VISAGAR.NS`, `SRPL.NS`, `FUTENTER.NS`, `SUNDARAM.NS`, `AKSHAR.NS`, `ARSHIYA.NS`, `AJOONI.NS`, `ANTARCTICA.NS`, `MEPINFRA.NS`, `DEBOCK.NS`, `VINNY.NS`, `AGSTRA.NS`, `SAIFL.NS`, `SUPREMEENG.NS`, `PARASPETRO.NS`, `GAYAHWS.NS`, `COUNCODOS.NS`, `NOIDATOLL.NS`, `GOYALALUM.NS`, `VIJIFIN.NS`, `VAISHALI.NS`, `TRUCAP.NS`, `PRAKASHSTL.NS`, `LCCINFOTEC.NS`, `HDIL.NS`, `ORIENTALTL.NS`, `KANANIIND.NS`, `EDUCOMP.NS`, `ZENITHSTL.NS`, `ACCURACY.NS`, `NEXTMEDIA.NS`, `DANGEE.NS`, `BGLOBAL.NS`
 - Polls prices every 5 minutes via `yfinance`
 - Buys/sells automatically using RSI + momentum signals
 - Simulates realistic Zerodha brokerage charges

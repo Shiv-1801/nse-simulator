@@ -37,15 +37,56 @@ WARNING_LOSS_PCT   = 3.0          # warn if unrealised loss on a position exceed
 WARNING_CHARGES_RS = 100.0        # warn if total charges exceed ₹100
 
 WATCHLIST = [
-    "IDEA.NS",
-    "SUZLON.NS",
-    "YESBANK.NS",
-    "NHPC.NS",
-    "IRFC.NS",
-    "BHEL.NS",
-    "ETERNAL.NS",
-    "PAYTM.NS",
-    "PNB.NS",
+    "AURIGROW.NS",    # Auri Grow India Ltd
+    "DHARAN.NS",      # Dharan Infra-EPC Ltd
+    "GATECH.NS",      # GACM Technologies Ltd
+    "FCONSUMER.NS",   # Future Consumer Ltd
+    "GRADIENTE.NS",   # Gradiente Infotainment Ltd
+    "OSIAHYPER.NS",   # Osia Hyper Retail Ltd
+    "INVENTURE.NS",   # Inventure Growth & Securities Ltd
+    "TPHQ.NS",        # Teamo Productions HQ Ltd
+    "GATECHDVR.NS",   # GACM Technologies Ltd-DVR
+    "GANGAFORGE.NS",  # Ganga Forging Ltd
+    "HAVISHA.NS",     # Sri Havisha Hospitality & Infra Ltd
+    "ORCHASP.NS",     # Orchasp Ltd
+    "ROLLATAIN.NS",   # Rollatainers Ltd
+    "MITTALLIFE.NS",  # Mittal Life Style Ltd
+    "SANWARIA.NS",    # Sanwaria Consumer Ltd
+    "VCL.NS",         # Vaxtex Cotfab Ltd
+    "SITI.NS",        # Siti Networks Ltd
+    "VISAGAR.NS",     # Visagar Polytex Ltd
+    "SRPL.NS",        # Shree Ram Proteins Ltd
+    "FUTENTER.NS",    # Future Enterprises Ltd
+    "SUNDARAM.NS",    # Sundaram Multi Pap Ltd
+    "AKSHAR.NS",      # Akshar Spintex Ltd
+    "ARSHIYA.NS",     # Arshiya Ltd
+    "AJOONI.NS",      # Ajooni Biotech Ltd
+    "ANTARCTICA.NS",  # Antarctica Ltd
+    "MEPINFRA.NS",    # MEP Infrastructure Developers Ltd
+    "DEBOCK.NS",      # Debock Industries Ltd
+    "VINNY.NS",       # Vinny Overseas Ltd
+    "AGSTRA.NS",      # AGS Transact Technologies Ltd
+    "SAIFL.NS",       # Sameera Agro and Infra Ltd
+    "SUPREMEENG.NS",  # Supreme Engineering Ltd
+    "PARASPETRO.NS",  # Paras Petrofils Ltd
+    "GAYAHWS.NS",     # Gayatri Highways Ltd
+    "COUNCODOS.NS",   # Country Condos Ltd
+    "NOIDATOLL.NS",   # Noida Toll Bridge Company Ltd
+    "GOYALALUM.NS",   # Goyal Aluminiums Ltd
+    "VIJIFIN.NS",     # Viji Finance Ltd
+    "VAISHALI.NS",    # Vaishali Pharma Ltd
+    "TRUCAP.NS",      # TruCap Finance Ltd
+    "PRAKASHSTL.NS",  # Prakash Steelage Ltd
+    "LCCINFOTEC.NS",  # LCC Infotech Ltd
+    "HDIL.NS",        # Housing Development & Infrastructure Ltd
+    "ORIENTALTL.NS",  # Oriental Trimex Ltd
+    "KANANIIND.NS",   # Kanani Industries Ltd
+    "EDUCOMP.NS",     # Educomp Solutions Ltd
+    "ZENITHSTL.NS",   # Zenith Steel Pipes & Industries Ltd
+    "ACCURACY.NS",    # Accuracy Shipping Ltd
+    "NEXTMEDIA.NS",   # Next Mediaworks Ltd
+    "DANGEE.NS",      # Dangee Dums Ltd
+    "BGLOBAL.NS",     # Bharatiya Global Infomedia Ltd
 ]
 
 TRADE_LOG_FILE  = "trade_log.csv"

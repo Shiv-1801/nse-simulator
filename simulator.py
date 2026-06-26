@@ -97,12 +97,17 @@ IST = pytz.timezone("Asia/Kolkata")
 # CARRY-OVER BANKROLL
 # ─────────────────────────────────────────────
 def load_bankroll() -> float:
-    """Returns previous session's ending bankroll, or STARTING_CAPITAL if none."""
+    """Returns previous session's ending bankroll, or STARTING_CAPITAL if none.
+    If the saved bankroll is below STOP_CAPITAL (₹500), resets to STARTING_CAPITAL (₹1,000).
+    """
     if os.path.isfile(BANKROLL_FILE):
         try:
             data = json.load(open(BANKROLL_FILE))
             saved = float(data.get("bankroll", STARTING_CAPITAL))
             print(f"  Carried over bankroll from last session: ₹{saved:.2f}")
+            if saved < STOP_CAPITAL:
+                print(f"  Bankroll ₹{saved:.2f} is below ₹{STOP_CAPITAL:.0f} — resetting to ₹{STARTING_CAPITAL:.0f}")
+                return STARTING_CAPITAL
             return saved
         except Exception:
             pass

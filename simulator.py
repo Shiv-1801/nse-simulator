@@ -49,21 +49,21 @@ WATCHLIST = [
     "GANGAFORGE.NS",  # Ganga Forging Ltd
     "HAVISHA.NS",     # Sri Havisha Hospitality & Infra Ltd
     "ORCHASP.NS",     # Orchasp Ltd
-    "ROLLATAIN.NS",   # Rollatainers Ltd
-    "MITTALLIFE.NS",  # Mittal Life Style Ltd
+    "ROLLT.NS",       # Rollatainers Ltd
+    "MITTAL.NS",      # Mittal Life Style Ltd
     "SANWARIA.NS",    # Sanwaria Consumer Ltd
     "VCL.NS",         # Vaxtex Cotfab Ltd
-    "SITI.NS",        # Siti Networks Ltd
-    "VISAGAR.NS",     # Visagar Polytex Ltd
+    "SITINET.NS",     # Siti Networks Ltd
+    "VIVIDHA.NS",     # Visagar Polytex Ltd
     "SRPL.NS",        # Shree Ram Proteins Ltd
-    "FUTENTER.NS",    # Future Enterprises Ltd
+    "FEL.NS",         # Future Enterprises Ltd
     "SUNDARAM.NS",    # Sundaram Multi Pap Ltd
     "AKSHAR.NS",      # Akshar Spintex Ltd
     "ARSHIYA.NS",     # Arshiya Ltd
     "AJOONI.NS",      # Ajooni Biotech Ltd
-    "ANTARCTICA.NS",  # Antarctica Ltd
-    "MEPINFRA.NS",    # MEP Infrastructure Developers Ltd
-    "DEBOCK.NS",      # Debock Industries Ltd
+    "ANTGRAPHIC.NS",  # Antarctica Ltd
+    "MEP.NS",         # MEP Infrastructure Developers Ltd
+    "DIL.NS",         # Debock Industries Ltd
     "VINNY.NS",       # Vinny Overseas Ltd
     "AGSTRA.NS",      # AGS Transact Technologies Ltd
     "SAIFL.NS",       # Sameera Agro and Infra Ltd
@@ -75,7 +75,7 @@ WATCHLIST = [
     "GOYALALUM.NS",   # Goyal Aluminiums Ltd
     "VIJIFIN.NS",     # Viji Finance Ltd
     "VAISHALI.NS",    # Vaishali Pharma Ltd
-    "TRUCAP.NS",      # TruCap Finance Ltd
+    "TRU.NS",         # TruCap Finance Ltd
     "PRAKASHSTL.NS",  # Prakash Steelage Ltd
     "LCCINFOTEC.NS",  # LCC Infotech Ltd
     "HDIL.NS",        # Housing Development & Infrastructure Ltd

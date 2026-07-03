@@ -8,7 +8,6 @@ Starting capital: ₹1,000 | Target: ₹1,500 | Stop: ₹500
 """
 
 import yfinance as yf
-import pandas as pd
 import time
 import csv
 import os
@@ -19,7 +18,7 @@ import sys
 # Force UTF-8 output so the Rupee sign (₹) renders correctly on Windows
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
-from datetime import datetime, date
+from datetime import datetime
 import pytz
 
 # ─────────────────────────────────────────────
@@ -105,6 +104,7 @@ WATCHLIST = [
 ]
 
 TRADE_LOG_FILE  = "trade_log.csv"
+TRADE_LOG_FIELDS = ["timestamp", "symbol", "action", "qty", "price", "charges", "reason", "bankroll_after"]
 BANKROLL_FILE   = "bankroll.json"
 IST = pytz.timezone("Asia/Kolkata")
 
@@ -256,7 +256,10 @@ def min_pct_for_ticks(price: float, ticks: int) -> float:
 def fetch_price(symbol: str) -> tuple[float, float] | None:
     """
     Fetches the latest available price and volume for the given NSE symbol.
-    Uses a 1-day, 1-minute interval ticker and takes the most recent bar.
+    Uses a 1-day, 1-minute interval ticker: price is the most recent close,
+    volume is summed over the last 5 one-minute bars to approximate the
+    volume traded over one poll interval (for the MIN_VOLUME_5MIN filter —
+    a single 1-min bar understates a 5-min window by ~5x).
     Returns (price, volume) or None on failure.
     """
     try:
@@ -264,7 +267,9 @@ def fetch_price(symbol: str) -> tuple[float, float] | None:
         hist   = ticker.history(period="1d", interval="1m")
         if hist.empty:
             return None
-        return float(hist["Close"].iloc[-1]), float(hist["Volume"].iloc[-1])
+        price  = float(hist["Close"].iloc[-1])
+        volume = float(hist["Volume"].tail(5).sum())
+        return price, volume
     except Exception as e:
         print(f"  [WARN] Could not fetch {symbol}: {e}")
         return None
@@ -293,7 +298,7 @@ def near_upper_circuit(symbol: str, current_price: float) -> bool:
 # ─────────────────────────────────────────────
 # TRADE LOGGING
 # ─────────────────────────────────────────────
-def log_trade(timestamp, symbol, action, qty, price, charges, bankroll_after):
+def log_trade(timestamp, symbol, action, qty, price, charges, bankroll_after, reason=""):
     """Appends one trade record to the in-memory log and flushes to CSV."""
     record = {
         "timestamp"     : timestamp,
@@ -302,13 +307,18 @@ def log_trade(timestamp, symbol, action, qty, price, charges, bankroll_after):
         "qty"           : qty,
         "price"         : price,
         "charges"       : charges,
+        "reason"        : reason,
         "bankroll_after": bankroll_after,
     }
     trade_log.append(record)
 
+    # Fieldnames are a fixed schema (not derived from this record's own
+    # keys) so every row — BUY or SELL, whatever reason string it carries —
+    # lands in the same columns instead of silently drifting if a future
+    # call passes a different key set.
     file_exists = os.path.isfile(TRADE_LOG_FILE)
     with open(TRADE_LOG_FILE, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=record.keys())
+        writer = csv.DictWriter(f, fieldnames=TRADE_LOG_FIELDS)
         if not file_exists:
             writer.writeheader()
         writer.writerow(record)
@@ -415,8 +425,9 @@ def attempt_buy(symbol: str, current_price: float, prev_price: float, rsi: float
         "buy_time"  : now_ist().isoformat(),
     }
 
-    ts = now_ist().strftime("%Y-%m-%d %H:%M:%S")
-    log_trade(ts, symbol, "BUY", qty, current_price, charges, round(bankroll, 2))
+    ts     = now_ist().strftime("%Y-%m-%d %H:%M:%S")
+    reason = f"momentum +{price_change_pct:.2f}%, RSI={rsi}"
+    log_trade(ts, symbol, "BUY", qty, current_price, charges, round(bankroll, 2), reason=reason)
     last_action = f"BOUGHT {qty} x {symbol} @ ₹{current_price:.2f} | charges ₹{charges:.2f}"
     print(f"  >>> BUY  {symbol}: {qty} shares @ ₹{current_price:.2f} | RSI={rsi} | +{price_change_pct:.2f}% | charges ₹{charges:.2f}")
 
@@ -466,9 +477,29 @@ def attempt_sell(symbol: str, current_price: float, rsi: float, force: bool = Fa
     del positions[symbol]
 
     ts = now_ist().strftime("%Y-%m-%d %H:%M:%S")
-    log_trade(ts, symbol, "SELL", qty, current_price, charges, round(bankroll, 2))
+    log_trade(ts, symbol, "SELL", qty, current_price, charges, round(bankroll, 2), reason=sell_reason)
     last_action = f"SOLD {qty} x {symbol} @ ₹{current_price:.2f} [{sell_reason}] | charges ₹{charges:.2f}"
     print(f"  >>> SELL {symbol}: {qty} shares @ ₹{current_price:.2f} | {sell_reason} | charges ₹{charges:.2f}")
+
+
+# ─────────────────────────────────────────────
+# BEST-AVAILABLE PRICE FOR A HELD POSITION
+# ─────────────────────────────────────────────
+def resolve_price(symbol: str, current_prices: dict) -> float:
+    """
+    Best available price for a symbol we hold: this poll's live quote if we
+    have one, else the last price we actually saw for it, else (only if
+    we've never seen a quote at all) the entry price. Falling straight to
+    avg_price on a missed fetch would manufacture a fake breakeven — the
+    last known market price is always a better estimate of what it's
+    actually worth right now.
+    """
+    if symbol in current_prices:
+        return current_prices[symbol]
+    hist = price_history.get(symbol)
+    if hist:
+        return hist[-1]
+    return positions[symbol]["avg_price"]
 
 
 # ─────────────────────────────────────────────
@@ -480,11 +511,9 @@ def force_close_all_positions(current_prices: dict):
     Must run before any session-ending print_summary()/sys.exit() — target
     reached, stop-loss, and EOD all end the session, and print_summary()
     only persists the cash bankroll, not the value of unsold positions.
-    Falls back to the recorded average price if a live quote is unavailable
-    so a position is never simply abandoned for lack of a fresh fetch.
     """
     for sym in list(positions.keys()):
-        cp  = current_prices.get(sym, positions[sym]["avg_price"])
+        cp  = resolve_price(sym, current_prices)
         rsi = compute_rsi(price_history[sym])
         attempt_sell(sym, cp, rsi, force=True)
 
@@ -497,8 +526,10 @@ def print_status(prices: dict):
     global poll_count
     poll_count += 1
 
-    now_str   = now_ist().strftime("%Y-%m-%d %H:%M:%S IST")
-    progress  = (bankroll - STARTING_CAPITAL) / (TARGET_CAPITAL - STARTING_CAPITAL) * 100
+    now_str        = now_ist().strftime("%Y-%m-%d %H:%M:%S IST")
+    position_value = sum(resolve_price(sym, prices) * pos["qty"] for sym, pos in positions.items())
+    total_value    = bankroll + position_value
+    progress       = (total_value - STARTING_CAPITAL) / (TARGET_CAPITAL - STARTING_CAPITAL) * 100
 
     print("\n" + "=" * 62)
     print(f"  POLL #{poll_count} | {now_str}")
@@ -510,11 +541,12 @@ def print_status(prices: dict):
         print("  ⚠ WARNING: charges > ₹100!", end="")
     print()
 
-    # Progress bar
+    # Progress bar — tracks total portfolio value (cash + open positions),
+    # not cash alone, so it doesn't look like a loss right after a normal buy
     bar_len    = 30
     filled     = max(0, min(bar_len, int(bar_len * progress / 100)))
     bar        = "█" * filled + "░" * (bar_len - filled)
-    print(f"  Goal progress : [{bar}] {progress:.1f}%  (₹{bankroll:.0f} / ₹{TARGET_CAPITAL:.0f})")
+    print(f"  Goal progress : [{bar}] {progress:.1f}%  (₹{total_value:.0f} / ₹{TARGET_CAPITAL:.0f})")
     print(f"  Last action   : {last_action}")
 
     # Open positions
@@ -522,9 +554,7 @@ def print_status(prices: dict):
         print(f"\n  {'Symbol':<12} {'Qty':>5} {'Buy@':>8} {'Now@':>8} {'UnrPnL':>10} {'UnrPnL%':>8}")
         print("  " + "-" * 56)
         for sym, pos in positions.items():
-            cp  = prices.get(sym)
-            if cp is None:
-                cp = pos["avg_price"]
+            cp  = resolve_price(sym, prices)
             unr = (cp - pos["avg_price"]) * pos["qty"]
             pct = (cp - pos["avg_price"]) / pos["avg_price"] * 100
             warn = "  ⚠ >3% LOSS!" if pct < -WARNING_LOSS_PCT else ""
@@ -544,13 +574,13 @@ def print_summary(reason: str):
     print(f"  SESSION ENDED: {reason}")
     print("=" * 62)
 
-    wins   = sum(1 for t in trade_log if t["action"] == "SELL" and
-                 # find the matching buy to compare prices — simplified: check if bankroll grew
-                 True)  # we'll compute properly below
     sells  = [t for t in trade_log if t["action"] == "SELL"]
     buys   = [t for t in trade_log if t["action"] == "BUY"]
 
-    # Match buys and sells by symbol to compute per-trade P&L
+    # Match buys and sells by symbol to compute per-trade P&L, net of the
+    # brokerage charged on both legs — a trade whose price barely moved can
+    # still be a net loser once charges are subtracted, so a raw
+    # sell_price > buy_price comparison would overstate the win rate.
     winning_trades = 0
     losing_trades  = 0
     buy_map        = {}  # symbol -> list of buy records
@@ -561,9 +591,9 @@ def print_summary(reason: str):
             matching_buys = buy_map.get(t["symbol"], [])
             if matching_buys:
                 buy_rec  = matching_buys.pop(0)
-                buy_val  = buy_rec["price"] * buy_rec["qty"]
-                sell_val = t["price"] * t["qty"]
-                if sell_val > buy_val:
+                buy_cost     = buy_rec["price"] * buy_rec["qty"] + buy_rec["charges"]
+                sell_proceeds = t["price"] * t["qty"] - t["charges"]
+                if sell_proceeds > buy_cost:
                     winning_trades += 1
                 else:
                     losing_trades += 1
@@ -588,13 +618,17 @@ def print_summary(reason: str):
 # GRACEFUL EXIT ON CTRL+C
 # ─────────────────────────────────────────────
 def handle_exit(sig, frame):
-    print("\n\n  [Ctrl+C received — shutting down]")
-    latest_prices = {s: h[-1] for s, h in price_history.items() if h}
-    force_close_all_positions(latest_prices)
-    print_summary("User interrupted (Ctrl+C)")
+    print("\n\n  [Shutdown signal received — closing out and saving state]")
+    force_close_all_positions({})
+    print_summary("Interrupted (signal)")
     sys.exit(0)
 
+# Handle both Ctrl+C (SIGINT) and process termination (SIGTERM — this is
+# what GitHub Actions sends on job cancellation or a timeout-minutes kill).
+# Without SIGTERM handled here, a cancelled/timed-out run would skip
+# force-closing positions and saving the bankroll entirely.
 signal.signal(signal.SIGINT, handle_exit)
+signal.signal(signal.SIGTERM, handle_exit)
 
 
 # ─────────────────────────────────────────────
@@ -679,14 +713,26 @@ def main():
             rsi = compute_rsi(price_history[sym])
             attempt_sell(sym, cp, rsi)
 
-        # ── 4. Evaluate buy signals on watchlist ──────────────
+        # ── 4. Evaluate buy signals, strongest momentum first ──
+        # With MAX_POSITIONS as the binding constraint, walking WATCHLIST in
+        # its fixed order would always let earlier tickers claim open slots
+        # regardless of signal strength — rank candidates by this poll's
+        # price move instead so the strongest mover wins ties.
+        candidates = []
         for sym in WATCHLIST:
             cp   = current_prices.get(sym)
             prev = prev_prices.get(sym)
-            if cp is None:
+            if cp is None or not prev:
                 continue
-            rsi = compute_rsi(price_history[sym])
-            vol = current_volumes.get(sym)
+            change_pct = (cp - prev) / prev * 100
+            candidates.append((change_pct, sym))
+        candidates.sort(reverse=True)
+
+        for _, sym in candidates:
+            cp   = current_prices[sym]
+            prev = prev_prices[sym]
+            rsi  = compute_rsi(price_history[sym])
+            vol  = current_volumes.get(sym)
             attempt_buy(sym, cp, prev, rsi, vol, price_history[sym])
 
         # ── 5. Print status ───────────────────────────────────────
@@ -701,7 +747,7 @@ def main():
 
         # ── 6. Win / loss checks ──────────────────────────────────
         position_value = sum(
-            current_prices.get(sym, pos["avg_price"]) * pos["qty"]
+            resolve_price(sym, current_prices) * pos["qty"]
             for sym, pos in positions.items()
         )
         total_value = bankroll + position_value

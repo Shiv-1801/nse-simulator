@@ -447,7 +447,7 @@ def attempt_sell(symbol: str, current_price: float, rsi: float, force: bool = Fa
 
     sell_reason = None
     if force:
-        sell_reason = "FORCE-CLOSE (EOD)"
+        sell_reason = "FORCE-CLOSE (session end)"
     elif pnl_pct <= -stop_loss_pct:
         sell_reason = f"STOP-LOSS ({pnl_pct:.2f}%)"
     elif pnl_pct >= take_profit_pct:
@@ -469,6 +469,24 @@ def attempt_sell(symbol: str, current_price: float, rsi: float, force: bool = Fa
     log_trade(ts, symbol, "SELL", qty, current_price, charges, round(bankroll, 2))
     last_action = f"SOLD {qty} x {symbol} @ ₹{current_price:.2f} [{sell_reason}] | charges ₹{charges:.2f}"
     print(f"  >>> SELL {symbol}: {qty} shares @ ₹{current_price:.2f} | {sell_reason} | charges ₹{charges:.2f}")
+
+
+# ─────────────────────────────────────────────
+# FORCE-CLOSE ALL OPEN POSITIONS
+# ─────────────────────────────────────────────
+def force_close_all_positions(current_prices: dict):
+    """
+    Force-sells every open position at the best available price.
+    Must run before any session-ending print_summary()/sys.exit() — target
+    reached, stop-loss, and EOD all end the session, and print_summary()
+    only persists the cash bankroll, not the value of unsold positions.
+    Falls back to the recorded average price if a live quote is unavailable
+    so a position is never simply abandoned for lack of a fresh fetch.
+    """
+    for sym in list(positions.keys()):
+        cp  = current_prices.get(sym, positions[sym]["avg_price"])
+        rsi = compute_rsi(price_history[sym])
+        attempt_sell(sym, cp, rsi, force=True)
 
 
 # ─────────────────────────────────────────────
@@ -571,6 +589,8 @@ def print_summary(reason: str):
 # ─────────────────────────────────────────────
 def handle_exit(sig, frame):
     print("\n\n  [Ctrl+C received — shutting down]")
+    latest_prices = {s: h[-1] for s, h in price_history.items() if h}
+    force_close_all_positions(latest_prices)
     print_summary("User interrupted (Ctrl+C)")
     sys.exit(0)
 
@@ -646,11 +666,7 @@ def main():
         # ── 2. Force-sell all at EOD ──────────────────────────────
         if is_force_sell_time():
             print("  [EOD] 3:15 PM — force-closing all positions.")
-            for sym in list(positions.keys()):
-                cp  = current_prices.get(sym)
-                rsi = compute_rsi(price_history[sym])
-                if cp:
-                    attempt_sell(sym, cp, rsi, force=True)
+            force_close_all_positions(current_prices)
             print_status(current_prices)
             print_summary("EOD — market closed at 3:15 PM IST")
             sys.exit(0)
@@ -692,11 +708,13 @@ def main():
 
         if total_value >= TARGET_CAPITAL:
             print(f"\n  🎯 TARGET REACHED! Portfolio = ₹{total_value:.2f}")
+            force_close_all_positions(current_prices)
             print_summary("TARGET REACHED — ₹1,500 achieved!")
             sys.exit(0)
 
         if total_value < STOP_CAPITAL:
             print(f"\n  ❌ STOP TRIGGERED! Portfolio dropped to ₹{total_value:.2f}")
+            force_close_all_positions(current_prices)
             print_summary("STOP LOSS TRIGGERED — portfolio below ₹500")
             sys.exit(1)
 

@@ -36,6 +36,21 @@ FORCE_SELL         = (15, 15)     # force-close all positions at 3:15 PM IST
 WARNING_LOSS_PCT   = 3.0          # warn if unrealised loss on a position exceeds 3%
 WARNING_CHARGES_RS = 100.0        # warn if total charges exceed ₹100
 
+# Backtesting 166 round-trip trades across 14 sessions showed a 9.6% win rate:
+# most of the watchlist trades under ₹1, where NSE's ₹0.01 tick alone is a
+# 2-6% price move — bigger than the old flat 0.5%/1%/2% thresholds below. The
+# bot was buying single-tick noise and getting stop-lossed by the very next
+# tick. Thresholds are now the larger of a flat % and a tick-count, so cheap
+# stocks need a real multi-tick move instead of one tick of noise.
+TICK_SIZE           = 0.01        # NSE minimum tick size (₹) in this price range
+BUY_MOMENTUM_PCT     = 0.5        # base momentum threshold (% since previous poll)
+STOP_LOSS_PCT        = 1.0        # base stop-loss threshold (%)
+TAKE_PROFIT_PCT      = 2.0        # base take-profit threshold (%)
+MIN_MOMENTUM_TICKS   = 3          # buy move must clear at least this many ticks
+MIN_STOPLOSS_TICKS   = 4          # stop-loss must be at least this many ticks below buy price
+MIN_TAKEPROFIT_TICKS = 8          # take-profit must be at least this many ticks above buy price
+MIN_VOLUME_5MIN      = 2000       # min shares traded in the latest 5-min bar (liquidity filter)
+
 WATCHLIST = [
     "AURIGROW.NS",    # Auri Grow India Ltd
     "DHARAN.NS",      # Dharan Infra-EPC Ltd
@@ -222,20 +237,34 @@ def compute_rsi(prices: list, period: int = 14) -> float | None:
 
 
 # ─────────────────────────────────────────────
+# TICK-SIZE-AWARE THRESHOLDS
+# ─────────────────────────────────────────────
+def min_pct_for_ticks(price: float, ticks: int) -> float:
+    """
+    Converts a tick count into a % move at the given price.
+    Used to keep buy/stop-loss/take-profit thresholds meaningfully above
+    single-tick noise on low-priced penny stocks.
+    """
+    if price <= 0:
+        return 0.0
+    return ticks * TICK_SIZE / price * 100
+
+
+# ─────────────────────────────────────────────
 # FETCH LIVE PRICE VIA YFINANCE
 # ─────────────────────────────────────────────
-def fetch_price(symbol: str) -> float | None:
+def fetch_price(symbol: str) -> tuple[float, float] | None:
     """
-    Fetches the latest available price for the given NSE symbol.
-    Uses a 1-day, 1-minute interval ticker and takes the most recent close.
-    Returns None on failure.
+    Fetches the latest available price and volume for the given NSE symbol.
+    Uses a 1-day, 1-minute interval ticker and takes the most recent bar.
+    Returns (price, volume) or None on failure.
     """
     try:
         ticker = yf.Ticker(symbol)
         hist   = ticker.history(period="1d", interval="1m")
         if hist.empty:
             return None
-        return float(hist["Close"].iloc[-1])
+        return float(hist["Close"].iloc[-1]), float(hist["Volume"].iloc[-1])
     except Exception as e:
         print(f"  [WARN] Could not fetch {symbol}: {e}")
         return None
@@ -311,10 +340,13 @@ def is_force_sell_time() -> bool:
 # ─────────────────────────────────────────────
 # BUY LOGIC
 # ─────────────────────────────────────────────
-def attempt_buy(symbol: str, current_price: float, prev_price: float, rsi: float):
+def attempt_buy(symbol: str, current_price: float, prev_price: float, rsi: float,
+                 volume: float | None, price_hist: list):
     """
-    BUY signal: price rose > 0.5% from last reading AND RSI < 65
-    AND not near upper circuit AND we have room for another position.
+    BUY signal: price rose above a tick-size-adjusted momentum threshold AND
+    that rise is confirmed over the last two polls (not a single-tick blip)
+    AND RSI < 65 AND liquidity is adequate AND not near upper circuit AND we
+    have room for another position.
     """
     global bankroll, total_charges, last_action
 
@@ -330,12 +362,23 @@ def attempt_buy(symbol: str, current_price: float, prev_price: float, rsi: float
     if is_past_cutoff():
         return
 
+    # Liquidity check — thinly traded stocks produce stale/noisy 1-min bars
+    if volume is None or volume < MIN_VOLUME_5MIN:
+        return
+
     # Signal check
     if prev_price is None or prev_price == 0:
         return
     price_change_pct = (current_price - prev_price) / prev_price * 100
-    if price_change_pct <= 0.5:
+    required_momentum_pct = max(BUY_MOMENTUM_PCT, min_pct_for_ticks(current_price, MIN_MOMENTUM_TICKS))
+    if price_change_pct <= required_momentum_pct:
         return
+
+    # Confirmation check — require the rise to hold over the last two polls,
+    # not just a single tick bouncing up then back down
+    if len(price_hist) >= 3 and price_hist[-3] > price_hist[-2]:
+        return
+
     if rsi is None or rsi >= 65:
         return
     if near_upper_circuit(symbol, current_price):
@@ -384,8 +427,8 @@ def attempt_buy(symbol: str, current_price: float, prev_price: float, rsi: float
 def attempt_sell(symbol: str, current_price: float, rsi: float, force: bool = False):
     """
     SELL if:
-      (a) stop-loss: price dropped 1% below buy price
-      (b) take-profit: price rose 2% above buy price
+      (a) stop-loss: price dropped below a tick-size-adjusted floor below buy price
+      (b) take-profit: price rose above a tick-size-adjusted ceiling above buy price
       (c) RSI > 75 (overbought)
       (d) force=True (end-of-day close)
     """
@@ -399,12 +442,15 @@ def attempt_sell(symbol: str, current_price: float, rsi: float, force: bool = Fa
     buy_price = pos["avg_price"]
     pnl_pct   = (current_price - buy_price) / buy_price * 100
 
+    stop_loss_pct   = max(STOP_LOSS_PCT, min_pct_for_ticks(buy_price, MIN_STOPLOSS_TICKS))
+    take_profit_pct = max(TAKE_PROFIT_PCT, min_pct_for_ticks(buy_price, MIN_TAKEPROFIT_TICKS))
+
     sell_reason = None
     if force:
         sell_reason = "FORCE-CLOSE (EOD)"
-    elif pnl_pct <= -1.0:
+    elif pnl_pct <= -stop_loss_pct:
         sell_reason = f"STOP-LOSS ({pnl_pct:.2f}%)"
-    elif pnl_pct >= 2.0:
+    elif pnl_pct >= take_profit_pct:
         sell_reason = f"TAKE-PROFIT ({pnl_pct:.2f}%)"
     elif rsi is not None and rsi > 75:
         sell_reason = f"RSI OVERBOUGHT ({rsi})"
@@ -574,16 +620,19 @@ def main():
     seed_price_history()
 
     while True:
-        current_prices = {}   # symbol -> latest price this cycle
-        prev_prices    = {}   # symbol -> second-to-last price in history
+        current_prices  = {}   # symbol -> latest price this cycle
+        current_volumes = {}   # symbol -> latest 1-min bar volume this cycle
+        prev_prices     = {}   # symbol -> second-to-last price in history
 
         # ── 1. Fetch prices for all symbols ──────────────────────
         print("  Fetching prices...")
         for symbol in WATCHLIST:
-            price = fetch_price(symbol)
-            if price is None:
+            result = fetch_price(symbol)
+            if result is None:
                 continue
-            current_prices[symbol] = price
+            price, volume = result
+            current_prices[symbol]  = price
+            current_volumes[symbol] = volume
 
             # Store in history for RSI (keep last 50 readings)
             price_history[symbol].append(price)
@@ -621,7 +670,8 @@ def main():
             if cp is None:
                 continue
             rsi = compute_rsi(price_history[sym])
-            attempt_buy(sym, cp, prev, rsi)
+            vol = current_volumes.get(sym)
+            attempt_buy(sym, cp, prev, rsi, vol, price_history[sym])
 
         # ── 5. Print status ───────────────────────────────────────
         print_status(current_prices)

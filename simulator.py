@@ -41,6 +41,19 @@ WARNING_CHARGES_RS = 100.0        # warn if total charges exceed ₹100
 # bot was buying single-tick noise and getting stop-lossed by the very next
 # tick. Thresholds are now the larger of a flat % and a tick-count, so cheap
 # stocks need a real multi-tick move instead of one tick of noise.
+#
+# That tick-size fix didn't move the needle: 22 live sessions (Jun 9-Jul 14)
+# still showed a ~10% win rate, with 64% of exits being stop-losses fired on
+# the very next poll after entry (e.g. bought 09:31, stop-lossed 09:36). Two
+# more causes identified from those logs:
+#  1. The momentum entry only required the last poll to not be a reversal —
+#     a single 5-min spike on a thin stock still qualified. Confirmation now
+#     spans one more poll (15 min instead of 10) before we'll buy into it.
+#  2. RSI regularly pinned at exactly 100.0 and forced flat/losing exits.
+#     That happens when a stale, thinly-traded feed shows zero down-ticks in
+#     the lookback window — an artifact of no real trading, not a genuine
+#     overbought move. RSI readings from a too-uniform window are now
+#     treated as unusable instead of trusted at face value.
 TICK_SIZE           = 0.01        # NSE minimum tick size (₹) in this price range
 BUY_MOMENTUM_PCT     = 0.5        # base momentum threshold (% since previous poll)
 STOP_LOSS_PCT        = 1.0        # base stop-loss threshold (%)
@@ -49,6 +62,7 @@ MIN_MOMENTUM_TICKS   = 3          # buy move must clear at least this many ticks
 MIN_STOPLOSS_TICKS   = 4          # stop-loss must be at least this many ticks below buy price
 MIN_TAKEPROFIT_TICKS = 8          # take-profit must be at least this many ticks above buy price
 MIN_VOLUME_5MIN      = 2000       # min shares traded in the latest 5-min bar (liquidity filter)
+MIN_RSI_DISTINCT_PRICES = 4       # min distinct closes in the RSI lookback before trusting it
 
 WATCHLIST = [
     "AURIGROW.NS",    # Auri Grow India Ltd
@@ -209,13 +223,21 @@ def calculate_charges(price: float, qty: int, side: str) -> float:
 def compute_rsi(prices: list, period: int = 14) -> float | None:
     """
     Computes RSI from a list of price readings.
-    Returns None if insufficient data.
+    Returns None if insufficient or degenerate data.
     """
     if len(prices) < period + 1:
         return None
 
     # Use only the most recent (period+1) prices to get 'period' changes
     recent = prices[-(period + 1):]
+
+    # A too-uniform window (few distinct prices) means the feed is mostly
+    # stale/repeated closes — one lone uptick then makes avg_loss trivially
+    # 0 and RSI pins at exactly 100, which reads as "overbought" but is
+    # really just an absence of data rather than a real move.
+    if len(set(recent)) < MIN_RSI_DISTINCT_PRICES:
+        return None
+
     gains, losses = [], []
     for i in range(1, len(recent)):
         change = recent[i] - recent[i - 1]
@@ -384,9 +406,13 @@ def attempt_buy(symbol: str, current_price: float, prev_price: float, rsi: float
     if price_change_pct <= required_momentum_pct:
         return
 
-    # Confirmation check — require the rise to hold over the last two polls,
-    # not just a single tick bouncing up then back down
+    # Confirmation check — require the rise to hold over the last three
+    # polls (15 min), not just a single tick bouncing up then back down.
+    # Live logs showed single 5-min spikes on thin stocks reverting on the
+    # very next poll; the wider window filters that out before we buy.
     if len(price_hist) >= 3 and price_hist[-3] > price_hist[-2]:
+        return
+    if len(price_hist) >= 4 and price_hist[-4] > price_hist[-3]:
         return
 
     if rsi is None or rsi >= 65:

@@ -27,6 +27,7 @@ import pytz
 STARTING_CAPITAL   = 1000.0
 TARGET_CAPITAL     = 1500.0
 STOP_CAPITAL       = 500.0
+BANKROLL_RESET_FLOOR = 750.0      # reset to STARTING_CAPITAL if prior day's bankroll ends below this
 POLL_INTERVAL      = 300          # seconds between price refreshes (5 min)
 MAX_POSITIONS      = 2            # never hold more than this many stocks at once
 MAX_INVEST_RATIO   = 0.80         # never invest more than 80% of bankroll in one position
@@ -127,15 +128,15 @@ IST = pytz.timezone("Asia/Kolkata")
 # ─────────────────────────────────────────────
 def load_bankroll() -> float:
     """Returns previous session's ending bankroll, or STARTING_CAPITAL if none.
-    If the saved bankroll is below STOP_CAPITAL (₹500), resets to STARTING_CAPITAL (₹1,000).
+    If the saved bankroll is below BANKROLL_RESET_FLOOR (₹750), resets to STARTING_CAPITAL (₹1,000).
     """
     if os.path.isfile(BANKROLL_FILE):
         try:
             data = json.load(open(BANKROLL_FILE))
             saved = float(data.get("bankroll", STARTING_CAPITAL))
             print(f"  Carried over bankroll from last session: ₹{saved:.2f}")
-            if saved < STOP_CAPITAL:
-                print(f"  Bankroll ₹{saved:.2f} is below ₹{STOP_CAPITAL:.0f} — resetting to ₹{STARTING_CAPITAL:.0f}")
+            if saved < BANKROLL_RESET_FLOOR:
+                print(f"  Bankroll ₹{saved:.2f} is below ₹{BANKROLL_RESET_FLOOR:.0f} — resetting to ₹{STARTING_CAPITAL:.0f}")
                 return STARTING_CAPITAL
             return saved
         except Exception:
